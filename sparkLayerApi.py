@@ -49,7 +49,7 @@ def get_access_token2():
 def upload_data(data):
     token = get_access_token2()
 
-    url = f"{BASE_URL}/api/v1/price-lists/test/pricing"
+    url = f"{BASE_URL}/api/v1/price-lists/wholesale/pricing"
 
     headers = {
         "Authorization": f"Bearer {token}",
