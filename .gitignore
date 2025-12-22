@@ -1,0 +1,15 @@
+# Environment variables
+.env
+
+# Logs
+sync_info.log
+sync_debug.log
+
+# CSV cache
+catsy_products_full_export.csv
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env/
