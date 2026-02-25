@@ -4,8 +4,10 @@ import time
 import requests
 import logging
 import argparse
-from datetime import datetime  # ← Added for weekly logic
+import asyncio
+from datetime import datetime, timezone  # ← Added for weekly logic and timezone support
 from dotenv import load_dotenv
+import pytz
 
 load_dotenv()
 
@@ -46,7 +48,7 @@ if args.debug:
     main_logger.debug("Debug mode enabled - verbose output active")
 
 # ==================== CONFIG ====================
-CATSY_BASE_URL = "https://api.catsy.com/api/v3/queries/4919552a-c2c9-48af-ae88-a5159c8af053/items"
+CATSY_BASE_URL = f"https://api.catsy.com/api/v3/queries/{os.getenv('CATSY_QUERY_ID')}/items"
 CATSY_BEARER_TOKEN = os.getenv("CATSY_BEARER_TOKEN")
 if not CATSY_BEARER_TOKEN:
     raise ValueError("Please set CATSY_BEARER_TOKEN in your .env file")
@@ -71,6 +73,89 @@ BATCH_DELAY = 0.5
 # Folder and filename for debug export
 EXPORT_FOLDER = "exports"
 os.makedirs(EXPORT_FOLDER, exist_ok=True)  # Create folder if it doesn't exist
+
+# ==================== NOTIFICATION FUNCTIONS ====================
+DISCORD_WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK_URL', 'YOUR_DISCORD_WEBHOOK_URL_HERE')
+TEAMS_WEBHOOK_URL = os.getenv('TEAMS_WEBHOOK_URL', 'YOUR_TEAMS_WEBHOOK_URL_HERE')
+
+async def send_discord_message(message, is_error=False):
+    try:
+        if DISCORD_WEBHOOK_URL == 'YOUR_DISCORD_WEBHOOK_URL_HERE':
+            main_logger.info('Discord webhook URL not configured. Message: %s', message)
+            return
+
+        payload = {
+            'username': os.getenv('INTEGRATION_NAME', 'Health Monitor'),
+            'embeds': [{
+                'color': 0xFF0000 if is_error else 0x00FF00,
+                'title': '❌ Health Check Failed' if is_error else '✅ Health Check Status',
+                'description': message,
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            }]
+        }
+
+        response = requests.post(DISCORD_WEBHOOK_URL, json=payload)
+        response.raise_for_status()
+        main_logger.info('Discord notification sent successfully')
+    except Exception as error:
+        main_logger.error('Failed to send Discord notification: %s', str(error))
+
+async def send_teams_message(message, is_error=False):
+    try:
+        if TEAMS_WEBHOOK_URL == 'YOUR_TEAMS_WEBHOOK_URL_HERE':
+            main_logger.info('Teams webhook URL not configured. Message: %s', message)
+            return
+
+        # Get Australia/Sydney time
+        sydney_tz = pytz.timezone('Australia/Sydney')
+        sydney_time = datetime.now(sydney_tz)
+
+        payload = {
+            'type': 'message',
+            'attachments': [
+                {
+                    'contentType': 'application/vnd.microsoft.card.adaptive',
+                    'content': {
+                        '$schema': 'http://adaptivecards.io/schemas/adaptive-card.json',
+                        'type': 'AdaptiveCard',
+                        'version': '1.4',
+                        'body': [
+                            {
+                                'type': 'TextBlock',
+                                'text': '❌ Health Check Failed' if is_error else '✅ Health Check Status',
+                                'weight': 'Bolder',
+                                'size': 'Medium',
+                                'color': 'Attention' if is_error else 'Good'
+                            },
+                            {
+                                'type': 'TextBlock',
+                                'text': message,
+                                'wrap': True,
+                                'color': 'Default'
+                            },
+                            {
+                                'type': 'TextBlock',
+                                'text': f'🕐 {sydney_time.strftime("%b %d, %Y %I:%M %p")}',
+                                'size': 'Small',
+                                'isSubtle': True
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+
+        response = requests.post(TEAMS_WEBHOOK_URL, json=payload)
+        response.raise_for_status()
+        main_logger.info('Teams notification sent successfully')
+    except Exception as error:
+        main_logger.error('Failed to send Teams notification: %s', str(error))
+
+async def notify(message, is_error=False):
+    await asyncio.gather(
+        send_discord_message(message, is_error),
+        send_teams_message(message, is_error)
+    )
 
 # ==================== CATSY EXPORT ====================
 def fetch_catsy_products():
@@ -249,11 +334,20 @@ if __name__ == "__main__":
                 patch_to_sparklayer(chunk)
                 time.sleep(BATCH_DELAY)
             main_logger.info("\n🎉 All batches uploaded successfully!")
+            
+            # Send success notification
+            success_message = f"✅ Sync completed successfully!\n📊 Processed {len(catsy_products)} products from Catsy\n📤 Uploaded {len(sparklayer_items)} items to SparkLayer in {total_batches} batches"
+            asyncio.run(notify(success_message))
         else:
             main_logger.info("No valid products to upload to SparkLayer.")
+            # Send warning notification
+            asyncio.run(notify("⚠️ Sync completed but no valid products found to upload"))
 
         main_logger.info("=== Sync completed successfully ===\n")
         exit(0)
     except Exception as e:
         main_logger.critical(f"Sync failed with unexpected error: {e}", exc_info=True)
+        # Send error notification
+        error_message = f"❌ Sync failed with error: {str(e)}"
+        asyncio.run(notify(error_message, is_error=True))
         exit(1)

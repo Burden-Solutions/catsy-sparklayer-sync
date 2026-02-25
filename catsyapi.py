@@ -7,8 +7,7 @@ import os
 load_dotenv()
 
 # ==================== CONFIG ====================
-BASE_URL = "https://api.catsy.com/api/v3/queries/4919552a-c2c9-48af-ae88-a5159c8af053/items"
-# Note: Path is /queries/ not /internal/queries/ — this matches what works now
+BASE_URL = f"https://api.catsy.com/api/v3/queries/{os.getenv('CATSY_QUERY_ID')}/items"
 
 BEARER_TOKEN = os.getenv("CATSY_BEARER_TOKEN")
 if not BEARER_TOKEN:
