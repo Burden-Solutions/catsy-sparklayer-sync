@@ -1,0 +1,14 @@
+[Unit]
+Description=Catsy to SparkLayer Sync
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/catsy-sparklayer-sync
+ExecStart=/usr/bin/env node main.js
+EnvironmentFile=/opt/catsy-sparklayer-sync/.env
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=catsy-sparklayer-sync

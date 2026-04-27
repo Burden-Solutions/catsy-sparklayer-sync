@@ -1,0 +1,29 @@
+{
+  "name": "catsy-sparklayer-sync",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Catsy to SparkLayer product sync",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js",
+    "start:debug": "node main.js --debug",
+    "test-webhook": "node testWebhook.js",
+    "catsy-export": "node catsyApi.js",
+    "sparklayer-test": "node sparkLayerApi.js",
+    "service:install": "chmod +x install.sh && sudo ./install.sh",
+    "service:uninstall": "chmod +x uninstall.sh && sudo ./uninstall.sh",
+    "service:start": "sudo systemctl start catsy-sparklayer-sync.timer",
+    "service:stop": "sudo systemctl stop catsy-sparklayer-sync.timer",
+    "service:restart": "sudo systemctl restart catsy-sparklayer-sync.timer",
+    "service:status": "sudo systemctl status catsy-sparklayer-sync.timer",
+    "service:run": "sudo systemctl start catsy-sparklayer-sync.service",
+    "service:logs": "sudo journalctl -u catsy-sparklayer-sync.service -f"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "csv-writer": "^1.6.0",
+    "dotenv": "^16.4.0",
+    "luxon": "^3.4.0",
+    "winston": "^3.13.0"
+  }
+}
